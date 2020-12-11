@@ -1,0 +1,7 @@
+students.txt
+questions.txt
+# generated exams
+*.txt
+exam_generator
+.mypy_cache/**
+**/*.swp

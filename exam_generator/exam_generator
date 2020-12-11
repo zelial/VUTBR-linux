@@ -1,0 +1,133 @@
+#!/usr/bin/python
+"""
+generates unique exam for each student out of the full 
+set of possible questions
+
+Question input file is expected with the following format:
+(created by plain text export from source google document)
+
+#1 Lesson name
+1. First question
+   * answer (will be ignored)
+2. Second question
+   * second answer
+#2 Second lesson
+...
+"""
+
+import re
+import sys
+import copy
+import pprint
+import random
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--students","-s",action="append", required=True,
+        help="File containing list of students, one per line")
+parser.add_argument("--questions", "-q", action="append", required=True,
+        help="File with questions")
+options = parser.parse_args()
+
+if not options.students:
+    parser.print_help()
+    print("students parametr not set")
+    sys.exit(1)
+if not options.questions:
+    parser.print_help()
+    print("questions parametr not set")
+    sys.exit(1)
+
+#
+# read all inputs
+#
+students = []
+with open(options.students[0]) as f:
+    students = [x.strip() for x in f.readlines()]
+print(students)
+
+"""
+questions[lesson_number] = { "name":"lesson_name",
+                             "questions" :
+                                ["question1", question2",...]
+                           }
+"""
+questions = {}
+with open(options.questions[0]) as f:
+    lesson = ""
+    lesson_number = 0
+    question = ""
+    question_number = 0
+    # are we inside a multi-line question?
+    in_question = False
+    for line in [x.lstrip() for x in f.readlines()]:
+        # new lesson section
+        if line.startswith('#'):
+            lesson_number = int(line.split()[0][1:])
+            lesson_name = line.split(" ", 1)[1].strip()
+            print("Found lesson #{} named {}".format(
+                lesson_number, lesson_name))
+            questions[lesson_number] = {}
+            questions[lesson_number]["name"] = lesson_name.strip()
+            questions[lesson_number]["questions"] = []
+            if in_question:
+                in_question = False
+                questions[lesson_number]["questions"].append(question.rstrip())
+                question = ""
+            continue
+        # new question
+        match = re.match(r"([0-9]+)\. (.*)", line)
+        if match:
+            if in_question:
+                in_question = False
+                questions[lesson_number]["questions"].append(question.rstrip())
+                question = ""
+            in_question = True
+            question_number = int(match.group(1))
+            question += match.group(2)
+            print("Question starts: #{}".format(question_number))
+            continue
+        # answer - skip it
+        match = re.match(r" *\* .*", line)
+        if match:
+            if in_question:
+                in_question = False
+                questions[lesson_number]["questions"].append(question.rstrip())
+                question = ""
+            continue
+        # anything else = multiline question
+        if in_question:
+            question += line
+print("Found following questions:")
+pprint.pprint(questions)
+
+#
+# Generate exams
+#
+
+# to make sure each question is equally represented in the results
+# we'll create a copy of questions and each time we use one question,
+# we remove it from list. Refill the list from the original if empty
+# and still in need of questions
+
+questions_pool = copy.deepcopy(questions)
+
+for student in students:
+    print("Generating {}.txt".format(student))
+    f = open("./{}.txt".format(student), "w")
+    for lesson_number in questions_pool:
+        print("  Lesson #{} - {}".format(
+            lesson_number, questions_pool[lesson_number]["name"]))
+        # two questions from each lesson
+        for round in [1,2]:
+            lesson_questions = questions_pool[lesson_number]["questions"]
+            if len(lesson_questions) == 0:
+                questions_pool[lesson_number]["questions"] = copy.deepcopy(
+                    questions[lesson_number]["questions"])
+                lesson_questions = questions_pool[lesson_number]["questions"]
+            question = lesson_questions.pop(
+                    random.randrange(len(lesson_questions)))
+            print("    Question: {}".format(question))
+            f.write(question)
+            f.write("\n\n")
+    f.close()
