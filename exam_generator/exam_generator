@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 """
 generates unique exam for each student out of the full 
 set of possible questions
@@ -22,11 +22,15 @@ import pprint
 import random
 import argparse
 
+questions_per_lesson = 2
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--students","-s",action="append", required=True,
         help="File containing list of students, one per line")
 parser.add_argument("--questions", "-q", action="append", required=True,
         help="File with questions")
+parser.add_argument("--rejections", "-r", action="append", required=False,
+        help="File with rejected combinations of questions")
 options = parser.parse_args()
 
 if not options.students:
@@ -97,11 +101,25 @@ with open(options.questions[0]) as f:
             continue
         # anything else = multiline question
         if in_question:
-            question += line
+            question += '\n'+line.rstrip()
 print("Found following questions:")
 pprint.pprint(questions)
 
-#
+# read reject dictionary
+rejections = {}
+if options.rejections:
+    with open(options.rejections[0]) as f:
+        for line in f.readlines():
+            if line.strip() and line[0] != '#':
+                (section, question1, question2) = line.split(',', 2)
+                pair = (int(question1), int(question2))
+                if int(section) in rejections:
+                    rejections[int(section)].append(pair)
+                else:
+                    rejections[int(section)] = [pair]
+print("Have following rejections definied")
+print(rejections)
+
 # Generate exams
 #
 
@@ -110,24 +128,46 @@ pprint.pprint(questions)
 # we remove it from list. Refill the list from the original if empty
 # and still in need of questions
 
-questions_pool = copy.deepcopy(questions)
+
+def good_selection(tested_list, reject_list):
+    if len(set(tested_list)) < len(tested_list):  # not unique values
+        return False
+    for subset in reject_list:  # test each itemset in reject list
+        if len(set(tested_list).intersection(set(subset))) > 1:
+            return False
+    return True
+
+
+question_id_pool = {}
 
 for student in students:
     print("Generating {}.txt".format(student))
     f = open("./{}.txt".format(student), "w")
-    for lesson_number in questions_pool:
+    for lesson_number in questions:
         print("  Lesson #{} - {}".format(
-            lesson_number, questions_pool[lesson_number]["name"]))
+            lesson_number, questions[lesson_number]["name"]))
         # two questions from each lesson
-        for round in [1,2]:
-            lesson_questions = questions_pool[lesson_number]["questions"]
-            if len(lesson_questions) == 0:
-                questions_pool[lesson_number]["questions"] = copy.deepcopy(
-                    questions[lesson_number]["questions"])
-                lesson_questions = questions_pool[lesson_number]["questions"]
-            question = lesson_questions.pop(
-                    random.randrange(len(lesson_questions)))
+        if lesson_number not in question_id_pool:
+            question_id_pool[lesson_number] = []
+        if len(question_id_pool[lesson_number])<questions_per_lesson:  # pool is almost empty, add randomized question indexes, 3 is magic contstant
+            while 1:
+                new_id_pool = list(range(1, 1+len(questions[lesson_number]["questions"])))
+                random.shuffle(new_id_pool)
+                test_pool = question_id_pool[lesson_number][:]+new_id_pool
+                good = True
+                i = 0
+                while i < len(test_pool):
+                    good = good and good_selection(test_pool[i:i+questions_per_lesson], rejections.get(lesson_number,[]))
+                    i += questions_per_lesson
+                if good:
+                    break
+            question_id_pool[lesson_number] = test_pool
+        print("    Selected questions: %s" % str(question_id_pool[lesson_number][:questions_per_lesson]))
+        for i in question_id_pool[lesson_number][:questions_per_lesson]:
+            question = questions[lesson_number]["questions"][i-1]
             print("    Question: {}".format(question))
             f.write(question)
             f.write("\n\n")
+        # truncate question_id_pool with selected questions
+        question_id_pool[lesson_number] = question_id_pool[lesson_number][questions_per_lesson:]
     f.close()
