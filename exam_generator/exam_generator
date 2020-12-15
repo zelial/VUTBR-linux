@@ -144,8 +144,11 @@ for student in students:
     print("Generating {}.txt".format(student))
     f = open("./{}.txt".format(student), "w")
     for lesson_number in questions:
-        print("  Lesson #{} - {}".format(
-            lesson_number, questions[lesson_number]["name"]))
+        topic_string = "Lesson #{} - {}".format(
+            lesson_number, questions[lesson_number]["name"])
+        print("  "+topic_string)
+        f.write(topic_string+"\n")
+        f.write("-"*len(topic_string)+"\n\n")
         # two questions from each lesson
         if lesson_number not in question_id_pool:
             question_id_pool[lesson_number] = []
@@ -163,11 +166,14 @@ for student in students:
                     break
             question_id_pool[lesson_number] = test_pool
         print("    Selected questions: %s" % str(question_id_pool[lesson_number][:questions_per_lesson]))
+        count=1
         for i in question_id_pool[lesson_number][:questions_per_lesson]:
             question = questions[lesson_number]["questions"][i-1]
             print("    Question: {}".format(question))
+            f.write("Otázka #{}:\n".format(count))
             f.write(question)
             f.write("\n\n")
+            count += 1
         # truncate question_id_pool with selected questions
         question_id_pool[lesson_number] = question_id_pool[lesson_number][questions_per_lesson:]
     f.close()
