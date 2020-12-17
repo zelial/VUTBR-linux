@@ -67,6 +67,10 @@ with open(options.questions[0]) as f:
     for line in [x.lstrip() for x in f.readlines()]:
         # new lesson section
         if line.startswith('#'):
+            if in_question:
+                in_question = False
+                questions[lesson_number]["questions"].append(question.rstrip())
+                question = ""
             lesson_number = int(line.split()[0][1:])
             lesson_name = line.split(" ", 1)[1].strip()
             print("Found lesson #{} named {}".format(
@@ -74,10 +78,6 @@ with open(options.questions[0]) as f:
             questions[lesson_number] = {}
             questions[lesson_number]["name"] = lesson_name.strip()
             questions[lesson_number]["questions"] = []
-            if in_question:
-                in_question = False
-                questions[lesson_number]["questions"].append(question.rstrip())
-                question = ""
             continue
         # new question
         match = re.match(r"([0-9]+)\. (.*)", line)
