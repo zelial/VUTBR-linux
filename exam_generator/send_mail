@@ -1,0 +1,2 @@
+
+for name in $(cat students.txt) ; do mailx -r azelinka@redhat.com -s "[ILI] zadani zapoctove zkousky" -a "$name.txt" "$name@stud.fit.vutbr.cz" < mail-body.txt  ; done
